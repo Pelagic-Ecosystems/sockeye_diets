@@ -1,0 +1,80 @@
+---
+title: "Spatial Diet Data Analysis"
+author: "Sam James"
+date: "January 23, 2019"
+output: pdf_document
+---
+
+```{r setup, include=FALSE, message=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Spatial Analysis of Juvenile Sockeye Diets in 2015
+
+The following is a collection of the scripts run to generate and analyse the data for spatial analyses of the juvenile sockeye diet data collected in 2015. 
+
+Research Questions: 
+        1. How do diets vary across different ocean conditions experienced during the early outmigration?
+        2. Are they food-limited during their residence in the 'trophic gauntlet'?
+        
+## Stomach Fullness
+
+What percent of their body weight are they consuming (%BW) are they consuming in this region that has been hypothesized to be a trophic gauntlet?
+
+###  Importing and Wrangling the Data
+
+```{r Gut Fullness: data wrangling}
+library(tidyverse)
+library(here)
+
+spatial <- read_csv(here("raw","Spatial_2019.csv"))
+
+# Calculate the percent body weight of stomach contents for each fish: select desired columns, remove NA's, structure site as a factor and specify order of levels, then using mutate calculate percent body weight from the corrected wet weight and fish weight values and save this file as a csv
+percent.bw <- spatial %>%
+        select(ufn, location, site, fishweight, corrected.ww) %>%
+        filter(!is.na(corrected.ww), !is.na(fishweight)) %>%
+        mutate(site = factor(site, levels = c("D06", "D07", "D08", "D09", "D10", "D11", "J06", "J07", "J04", "J08", "J09", "J02"))) %>%
+        group_by(ufn) %>%
+        mutate(perc.bw = (((corrected.ww)/1000)/(fishweight-(corrected.ww/1000)))*100) %>%
+        distinct()
+
+write.csv(percent.bw, "GFI.csv")
+
+#to get a list of %BW values with means, standard deviations and standard error averaged for each site:
+gfi.site <- percent.bw %>%
+        #filter(site != 'D06', site != 'J02') %>%
+        group_by(site) %>%
+        summarise(meangfi = mean(perc.bw), sd.gfi = sd(perc.bw), se.gfi = sd(perc.bw)/sqrt(length(perc.bw)))
+
+#to get a list of %BW values with means, standard deviations and standard error averaged for each location:
+gfi.location <- percent.bw %>%
+        filter(site != 'D06', site != 'J02') %>%
+        group_by(location) %>%
+        summarise(meangfi = mean(perc.bw), sd.gfi = sd(perc.bw), se.gfi = sd(perc.bw)/sqrt(length(perc.bw)))
+
+```
+
+### Visualizing the Data
+
+```{r Gut Fullness: Plotting}
+# Create a boxplot showing gut fullness index (GFI) averaged for each site with a grey box overlain indicating values found in the literature
+ggplot(percent.bw, aes(x = site, y = perc.bw)) +
+        geom_boxplot() +
+        annotate("rect", xmin = 0.25, xmax = 6.75, ymin = 0.5, ymax = 1.5, alpha = .2) +
+        theme_classic() +
+        facet_grid(.~location, scales = "free")+
+        theme(
+                axis.text.x = element_text(size = 14),
+                axis.text.y = element_text(size = 14),
+                axis.title.x = element_blank(),
+                axis.title.y = element_text(size = 14),
+                panel.background = element_rect(fill = "white", colour = "grey50"),
+                strip.background = element_blank(),
+                strip.text = element_text(size = 16)
+        ) +
+        scale_y_continuous("Gut Fullness Index", breaks = c(0,1,2,3,4,5,6)) +
+        labs(y = "Gut Fullness Index") 
+       
+
+```
+

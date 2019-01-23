@@ -1,0 +1,11 @@
+# Changelog
+
+
+## [0.0.1] - 2019-01-23
+### Added
+- Added my raw scripts, raw data, figs, processed files from my personal spatial, temporal and zooplankton files to new 'sockeye_diets' project folder
+- Raw data were produced by downloading the fish_lab_data file from the HAkai JSP Data Release Package 1.0, selecting the ufn's required for my study, and creating new fields for entering diet information
+- The data and scripts are for 2 separate chapters: 
+        1. Spatial: samples were processed and diet information filled in between 2017-06 and 2018-04
+        2. Temporal: samples were processed and diet information filled between 2018-04 and 2018-11
+        
