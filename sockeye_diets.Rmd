@@ -19,7 +19,7 @@ Research Questions:
         
 ## Stomach Fullness
 
-What percent of their body weight are they consuming (%BW) are they consuming in this region that has been hypothesized to be a trophic gauntlet?
+What percent of their body weight (%BW) are they consuming in this region that has been hypothesized to be a trophic gauntlet?
 
 ###  Importing and Wrangling the Data
 
