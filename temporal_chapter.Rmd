@@ -1,0 +1,619 @@
+---
+title: "Temporal Chapter"
+author: "Sam James"
+date: "March 17, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE, message=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Temporal Chapter
+
+The following is a collection of the scripts run to generate and analyse the data for temporal analyses of the juvenile sockeye diet data collected in 2015 and 2016.
+
+Research Question: How do juvenile sockeye diets vary across the migration period and between years in two different coastal environments?
+
+Sub-questions: 
+1) Does the low foraging success observed in Chapter 1 (June 2015) persist throughout the migratory period and between years?
+2) Does their diet show seasonal variation in species composition?
+3) Does peak salmon outmigration overlap with peak zooplankton abundance?
+4) (maybe, but too many questions!) Do the same patterns in prey selectivity observed in Chapter 1 persist through time?
+
+
+## 1) Does the low foraging success observed in Chapter 1 (June 2015) persist throughout the migratory period and between years?
+
+###Preparing the Data
+
+```{r GFI, warning = FALSE}
+library(tidyverse)
+library(lubridate)
+library(here)
+library(visreg)
+
+temporal <- read_csv(here("raw", "Temporal.csv"))
+
+temporal$corrected.ww <- as.numeric(temporal$corrected.ww)
+temporal$fishweight <- as.numeric(temporal$fishweight)
+temporal$date <-as.Date(temporal$date)
+temporal$year <- as.factor(temporal$year)
+
+# Creating the date as a factor with specified levels
+md.order <- c("May-14", "May-16", "May-21", "May-26", "May-27","Jun-03", "Jun-05", "Jun-06", "Jun-09", "Jun-11", "Jun-13", "Jun-14", "Jun-16", "Jun-20", "Jun-29")
+temporal$monthday <- factor(format(temporal$date, "%b-%d"), levels = md.order)
+
+#data wrangling
+GFI <- temporal %>%
+        select(ufn, location, site, date, year, monthday, fishweight, corrected.ww) %>%
+        filter(!is.na(corrected.ww) & !is.na(fishweight)) %>%
+        group_by(location, date) %>%
+        mutate(gfi = (((corrected.ww)/1000)/fishweight)*100) %>%
+        distinct()
+
+# Plotting, separating data by location and year, with grey box for 'typical' GFI values
+GFI.plot<- ggplot(data = GFI, aes(x = monthday, y = gfi)) +
+        geom_boxplot(width=2, aes(fill=(location))) +
+        theme_classic() +
+        annotate("rect", xmin = 0, xmax = 16, ymin = 0.5, ymax = 1.5, alpha = .2) +
+        facet_grid(location~year) +
+        theme(
+                axis.text.x = element_text(size = 10, angle = 90),
+                axis.text.y = element_text(size = 10),
+                axis.title.x = element_blank(),
+                axis.title.y = element_text(size = 14),
+                panel.background = element_rect(fill = "white", colour = "grey50"),
+                panel.spacing.x = unit(2, "lines"),
+                strip.background = element_blank(),
+                strip.text = element_text(size = 16),
+                legend.position = "none"
+                ) +
+        labs(y = "Gut Fullness Index", x = "Date") 
+
+GFI.plot
+```
+
+### Testing for significance
+
+I first looked to see if data were normally distributed: they are positively skewed, therefore data were sqrt transformed.
+
+The ANOVA results show that there was a significant difference in GFI between locations, and that for JS, GFI was significantly higher in 2016.
+
+```{r GFI, warning = FALSE}
+
+#ANOVA on GFI per location and year
+hist(GFI$gfi)
+#positive skew, therefore sqrt transform
+GFI$sqrt_gfi <- sqrt(GFI$gfi)
+hist(GFI$sqrt_gfi)
+
+
+z <- lm(sqrt_gfi~location + year + location*year, data = GFI)
+plot(z)
+visreg(z)
+anova(z)
+#location and location*year interaction are significant meaning there is a significant difference
+#between the two locaitons and the GFI was significantly higher in 2016 in JS only
+
+#another way, same thing:
+gfi.aov <- aov(sqrt_gfi ~ location + year + location*year, data = GFI)
+summary(gfi.aov)
+
+
+#to look at the effect of year at each location separately
+gfi.DI <- GFI %>%
+        filter(location == "DI")
+gfi.JS <- GFI %>%
+        filter(location == "JS")
+
+#Anova for DI comparing years
+z <- lm(sqrt_gfi~year, data = gfi.DI)
+plot(z)
+visreg(z)
+anova(z)
+
+#Anova for JS comparin years
+z <- lm(sqrt_gfi~year, data = gfi.JS)
+plot(z)
+visreg(z)
+anova(z)
+```
+
+******
+## 2) Does their diet show seasonal variation in species composition?
+
+This one is a bit more complicated. How do you best observe changes over time? I ran the Bray-Curtis analysis for all the data, and then separated by location. 
+
+First we'll look at the data at the individual sample level, and then group them by sampling event later:
+
+### Preparing the Data BY SAMPLE: Abundance, Biomass, and P/A
+
+```{r Cluster: Importing Data, warning = FALSE}
+library(tidyverse)
+library(vegan)
+library(lubridate)
+library(dendextend)
+library(here)
+
+
+#Import files
+temp <- read_csv(here("raw", "Temporal.csv"))
+meta <- read_csv(here("processed", "temp_meta.csv"))
+```
+
+```{r Cluster: ABUNDANCE}
+#Data wrangling:-------#
+
+#using detailed level of taxonomy (plot.taxon.d), for coarser resolution use plot.taxon
+#setting up the data and apply an sqrt arcsine tranformation to rel abund data
+#Calculating abundance data at the individual sample level
+#Removing sample "2015-05-16-D07-SO-27" because it's 100% dissimilar from all other samples (4 Thysanoessa spinifera and nothing else) and messes up NMDS
+abund1 <- temp %>%
+        select(semsp_id = semsp.no, ufn, date, sample.int, location, site, fullness.est, plot.taxon.d, count) %>%
+        separate(date, c("year", "month", "day"), sep = "-") %>%
+        unite(year_int, c(year, sample.int), remove = FALSE) %>%
+        unite(year_month, c(year, month), remove = FALSE) %>%
+        filter(semsp_id != "2015-05-16-D07-SO-27", count != "Na", !plot.taxon.d %in% c('NA', 'Digested', 'Anisakis'), fullness.est >5) %>% 
+        group_by(semsp_id, year, month, year_month, year_int, sample.int, site, location, plot.taxon.d) %>%
+        summarise(total = sum(count)) %>%
+        mutate(relabund = (total/sum(total))) %>%
+        mutate(arcsin = ((2/pi)*asin(sqrt(relabund)))) %>%
+        select(semsp_id, year, month, year_month, year_int, sample.int, site, location, plot.taxon.d, arcsin)
+
+#rearranging rows of taxonomic data into columns by plot taxon, making all NA's = 0, selecting only taxonomic columns
+clusdata_abund<- spread(abund1, key = plot.taxon.d, value = arcsin) 
+clusdata_abund[is.na(clusdata_abund)] <- 0
+
+#converting it to a dataframe and setting rownames as the first column and then only selecting the taxonomic data columns
+# as part of the data prep for Bray-Curtis
+clusdata_abund <- data.frame(clusdata_abund)
+rownames(clusdata_abund)=clusdata_abund[,1]    
+bc_abund <- clusdata_abund[9:78]
+
+#edit metadata to only contain same ID's as in the temporal fish data
+metadata1 <- semi_join(meta, clusdata_abund, by = "semsp_id")
+metadata <- merge(metadata1, clusdata_abund[,c("semsp_id", "year_month", "year_int", "sample.int")], by = "semsp_id") %>%
+        select(1, 4, 2:3, 20:21, 5:7, 10:11, 8:9, 12:19)
+
+```
+
+We may also want to break it down by location to observe seasonal changes:
+
+```{r: ABUNDANCE: DI vs JS}
+#----DI-----
+abund_DI <- temp %>%
+        select(semsp_id = semsp.no, ufn, date, sample.int, location, site, fullness.est, plot.taxon.d, count) %>%
+        separate(date, c("year", "month", "day"), sep = "-") %>%
+        unite(year_int, c(year, sample.int), remove = FALSE) %>%
+        unite(year_month, c(year, month), remove = FALSE) %>%
+        filter(semsp_id != "2015-05-16-D07-SO-27", count != "Na", !plot.taxon.d %in% c('NA', 'Digested', 'Anisakis'), fullness.est >5, location == "DI") %>% 
+        group_by(semsp_id, year, month, year_month, year_int, sample.int, plot.taxon.d) %>%
+        summarise(total = sum(count)) %>%
+        mutate(relabund = (total/sum(total))) %>%
+        mutate(arcsin = ((2/pi)*asin(sqrt(relabund)))) %>%
+        select(semsp_id, year, month, year_month, year_int, sample.int, plot.taxon.d, arcsin)
+
+#rearranging rows of taxonomic data into columns by plot taxon, making all NA's = 0, selecting only taxonomic columns
+clusdata_abund_DI<- spread(abund_DI, key = plot.taxon.d, value = arcsin) 
+clusdata_abund_DI[is.na(clusdata_abund_DI)] <- 0
+
+#converting it to a dataframe and setting rownames as the first column and then only selecting the taxonomic data columns
+# as part of the data prep for Bray-Curtis
+clusdata_abund_DI <- data.frame(clusdata_abund_DI)
+rownames(clusdata_abund_DI)=clusdata_abund_DI[,1]    
+bc_abund_DI <- clusdata_abund_DI[7:64]
+
+#edit metadata to only contain same ID's as in the fish data
+metadata1 <- semi_join(meta, clusdata_abund_DI, by = "semsp_id")
+metadata_DI <- merge(metadata1, clusdata_abund_DI[,c("semsp_id", "year_month", "year_int", "sample.int")], by = "semsp_id") %>%
+        select(1, 4, 2:3, 20:21, 5:7, 10:11, 8:9, 12:19)
+
+#-----JS-----
+abund_JS <- temp %>%
+        select(semsp_id = semsp.no, ufn, date, sample.int, location, site, fullness.est, plot.taxon.d, count) %>%
+        separate(date, c("year", "month", "day"), sep = "-") %>%
+        unite(year_int, c(year, sample.int), remove = FALSE) %>%
+        unite(year_month, c(year, month), remove = FALSE) %>%
+        filter(semsp_id != "2015-05-16-D07-SO-27", count != "Na", !plot.taxon.d %in% c('NA', 'Digested', 'Anisakis'), fullness.est >5, location == "JS") %>% 
+        group_by(semsp_id, year, month, year_month, year_int, sample.int, plot.taxon.d) %>%
+        summarise(total = sum(count)) %>%
+        mutate(relabund = (total/sum(total))) %>%
+        mutate(arcsin = ((2/pi)*asin(sqrt(relabund)))) %>%
+        select(semsp_id, year, month, year_month, year_int, sample.int, plot.taxon.d, arcsin)
+
+#rearranging rows of taxonomic data into columns by plot taxon, making all NA's = 0, selecting only taxonomic columns
+clusdata_abund_JS<- spread(abund_JS, key = plot.taxon.d, value = arcsin) 
+clusdata_abund_JS[is.na(clusdata_abund_JS)] <- 0
+
+#converting it to a dataframe and setting rownames as the first column and then only selecting the taxonomic data columns
+# as part of the data prep for Bray-Curtis
+clusdata_abund_JS <- data.frame(clusdata_abund_JS)
+rownames(clusdata_abund_JS)=clusdata_abund_JS[,1]    
+bc_abund_JS <- clusdata_abund_JS[7:62]
+
+#edit metadata to only contain same ID's as in the fish data
+metadata1 <- semi_join(meta, clusdata_abund_JS, by = "semsp_id")
+metadata_JS <- merge(metadata1, clusdata_abund_JS[,c("semsp_id", "year_month", "year_int", "sample.int")], by = "semsp_id") %>%
+        select(1, 4, 2:3, 20:21, 5:7, 10:11, 8:9, 12:19)
+```
+
+Now for the biomass data:
+
+```{r Biomass}
+##BIOMASS DATA:
+
+#Calculating biomass for each individual sample
+#Again, Removing sample "2015-05-16-D07-SO-27" because it's 100% dissimilar from all other samples (4 Thysanoessa spinifera and nothing else) and messes up NMDS
+biom1 <- temp %>%
+        select(ufn, date, sample.int, location, site, semsp_id = semsp.no, region, fullness.est, plot.taxon.d, corrected.weight) %>%
+        separate(date, c("year", "month", "day"), sep = "-") %>%
+        unite(year_int, c(year, sample.int), remove = FALSE) %>%
+        unite(year_month, c(year, month), remove = FALSE) %>%
+        filter(semsp_id != '2015-05-16_D07_27', corrected.weight != "Na", !plot.taxon.d %in% c('NA', 'Digested', 'Anisakis'), fullness.est >5) %>% 
+        group_by(semsp_id, year, month, year_month, year_int, location, plot.taxon.d) %>%
+        mutate_at('corrected.weight', as.numeric) %>%
+        summarise(total = sum(corrected.weight)) %>%
+        mutate(relbiom = (total/sum(total))) %>%
+        mutate(arcsin = ((2/pi)*asin(sqrt(relbiom)))) %>%
+        select(semsp_id, year, month, year_month, year_int, location, plot.taxon.d, arcsin)
+
+#rearranging rows of taxonomic data into columns by plot taxon, making all NA's = 0, selecting only taxonomic columns
+clusdata_biom<- spread(biom1, key = plot.taxon.d, value = arcsin) 
+clusdata_biom[is.na(clusdata_biom)] <- 0
+
+#converting it to a dataframe and setting rownames as the first column and then only selecting the taxonomic data columns
+# as part of the data prep for Bray-Curtis
+clusdata_biom <- data.frame(clusdata_biom)
+rownames(clusdata_biom)=clusdata_biom[,1]    
+bc_biom <- clusdata_biom[7:76]
+```
+
+And again, breaking down the biomass data into separate dataframes for DI vs JS:
+
+```{r Biomass: DI vs JS}
+##BIOMASS DATA:
+
+#---DI--------:
+
+#Calculating biomass for each individual sample in DI
+biom_DI <- temp %>%
+        select(ufn, date, sample.int, location, semsp_id = semsp.no, region, fullness.est, plot.taxon.d, corrected.weight) %>%
+        separate(date, c("year", "month", "day"), sep = "-") %>%
+        unite(year_int, c(year, sample.int), remove = FALSE) %>%
+        unite(year_month, c(year, month), remove = FALSE) %>%
+        filter(semsp_id != '2015-05-16_D07_27', corrected.weight != "Na", !plot.taxon.d %in% c('NA', 'Digested', 'Anisakis'), fullness.est >5, location == "DI") %>% 
+        group_by(semsp_id, year, month, year_month, year_int, sample.int, plot.taxon.d) %>%
+        mutate_at('corrected.weight', as.numeric) %>%
+        summarise(total = sum(corrected.weight)) %>%
+        mutate(relbiom = (total/sum(total))) %>%
+        mutate(arcsin = ((2/pi)*asin(sqrt(relbiom)))) %>%
+        select(semsp_id, year, month, year_month, year_int, sample.int, plot.taxon.d, arcsin)
+
+#rearranging rows of taxonomic data into columns by plot taxon, making all NA's = 0, selecting only taxonomic columns
+clusdata_biom_DI <- spread(biom_DI, key = plot.taxon.d, value = arcsin) 
+clusdata_biom_DI[is.na(clusdata_biom_DI)] <- 0
+
+#converting it to a dataframe and setting rownames as the first column and then only selecting the taxonomic data columns
+# as part of the data prep for Bray-Curtis
+clusdata_biom_DI <- data.frame(clusdata_biom_DI)
+rownames(clusdata_biom_DI)=clusdata_biom_DI[,1]    
+bc_biom_DI <- clusdata_biom_DI[7:65]
+
+
+#------JS-------:
+
+#Calculating biomass for each individual sample in JS
+biom_JS <- temp %>%
+        select(ufn, date, sample.int, location, semsp_id = semsp.no, region, fullness.est, plot.taxon.d, corrected.weight) %>%
+        separate(date, c("year", "month", "day"), sep = "-") %>%
+        unite(year_int, c(year, sample.int), remove = FALSE) %>%
+        unite(year_month, c(year, month), remove = FALSE) %>%
+        filter(semsp_id != '2015-05-16_D07_27', corrected.weight != "Na", !plot.taxon.d %in% c('NA', 'Digested', 'Anisakis'), fullness.est >5, location == "JS") %>% 
+        group_by(semsp_id, year, month, year_month, year_int, sample.int, plot.taxon.d) %>%
+        mutate_at('corrected.weight', as.numeric) %>%
+        summarise(total = sum(corrected.weight)) %>%
+        mutate(relbiom = (total/sum(total))) %>%
+        mutate(arcsin = ((2/pi)*asin(sqrt(relbiom)))) %>%
+        select(semsp_id, year, month, year_month, year_int, sample.int, plot.taxon.d, arcsin)
+
+#rearranging rows of taxonomic data into columns by plot taxon, making all NA's = 0, selecting only taxonomic columns
+clusdata_biom_JS <- spread(biom_JS, key = plot.taxon.d, value = arcsin) 
+clusdata_biom_JS[is.na(clusdata_biom_JS)] <- 0
+
+#converting it to a dataframe and setting rownames as the first column and then only selecting the taxonomic data columns
+# as part of the data prep for Bray-Curtis
+clusdata_biom_JS <- data.frame(clusdata_biom_JS)
+rownames(clusdata_biom_JS)=clusdata_biom_JS[,1]    
+bc_biom_JS <- clusdata_biom_JS[7:62]
+```
+
+
+### Cluster Analyses - ALL DATA
+
+Code to run the Bray-Curtis Analysis, then test for significant clusters using SIMPROF, then look for significance between clusters using ANOSIM and see which species contribute to significant differences using SIMPER. 
+
+The code below is for all the data first, and then separated into DI and JS.
+
+```{r Cluster: Bray-Curtis}
+#----------Bray-Curtis----------#
+
+#vegdist uses the vegan package to calculate the distances between variables
+bc_dist <- vegdist(bc_abund, method = "bray")
+
+#hclust creates the dendrogram by calculating the amount of dissimilarity between clusters,
+# average calculates the distance between all the different values in each group and then averages them
+bc_clust <- hclust(bc_dist, method = "average")
+
+
+#------------Plotting-------------#
+
+# plotting the Bray-Curtis dissimilarity, I made it as a dendrogram to flatten out the bottom
+den_temp_clust = as.dendrogram(bc_clust)
+plot(den_temp_clust)
+
+#Colouring (from https://rstudio-pubs-static.s3.amazonaws.com/68544_06343669257d4f35aaca449f9ff1e6f7.html)
+#creating a colour palette with dif colours for DI and JS
+cbPalette <- c("tomato3", "steelblue")
+colorCode <- c(DI=cbPalette[1], JS = cbPalette[2])
+
+labels_colors(den_temp_clust) <- colorCode[clusdata_abund$location][order.dendrogram(den_temp_clust)]
+par(cex = 0.7, mar=c(7,4,1,1))
+plot(den_temp_clust, ylab = "Bray-Curtis Dissimilarity")
+
+```
+
+```{r Cluster: Simprof, results = 'hide'}
+##--------SIMPROF TEST-----------##
+##
+library(clustsig)
+
+#Calculates number of significant clusters using average linkage method
+simprof_test <- simprof(bc_abund, num.expected=200, num.simulated=100,
+                        method.cluster="average", method.distance="czekanowski", 
+                        method.transform="identity", alpha=0.01, sample.orientation = "row", 
+                        const =1 ,silent=FALSE, increment=10, undef.zero=T, 
+                        warn.braycurtis = F)
+simprof.plot(simprof_test)
+
+```
+
+```{r Cluster: ANOSIM/SIMPER}
+##
+##------ANOSIM/SIMPER-------##
+##
+
+#create the BC dissimilarity matrix
+bc_dist <- vegdist(bc_abund, method = "bray")
+
+attach(metadata)
+
+#anosim using our dissimilarity matrix and our grouping variable: location
+temp.ano <- anosim(bc_dist, location)
+summary(temp.ano)
+plot(temp.ano)
+
+#anosim using our dissimilarity matrix and our grouping variable: year
+temp.ano <- anosim(bc_dist, year)
+summary(temp.ano)
+plot(temp.ano)
+
+#anosim using our dissimilarity matrix and our grouping variable: month
+temp.ano <- anosim(bc_dist, month)
+summary(temp.ano)
+plot(temp.ano)
+
+#anosim using our dissimilarity matrix and our grouping variable: sample.int (interval from 1-3, with 1 being end of May, 2 = early June, 3 = late June)
+temp.ano <- anosim(bc_dist, sample.int)
+summary(temp.ano)
+plot(temp.ano)
+
+#simper analysis using the BC dissimilarity matrix and grouping variable
+sim <- with(metadata, simper(bc_abund, location))
+
+#produces table with average contribution to dissimilary, avg abundances in groups a and b, and the cumulative sum of the contributions to dissimilarity
+summary(sim)
+
+#lists most influential species and their cumulative contributions
+sim 
+
+#to get the overall dissimilarity between the clusters
+lapply(sim, FUN = function(x){x$overall})
+```
+
+### Cluster Analyses - Discovery Islands
+
+Same code as above to run the Bray-Curtis Analysis, then test for significant clusters using SIMPROF, then look for significance between clusters using ANOSIM and see which species contribute to significant differences using SIMPER. Looking at DI data only.
+
+```{r Cluster: Bray-Curtis: DI}
+#----------Bray-Curtis----------#
+
+#vegdist uses the vegan package to calculate the distances between variables
+bc_dist <- vegdist(bc_abund_DI, method = "bray")
+
+#hclust creates the dendrogram by calculating the amount of dissimilarity between clusters,
+# average calculates the distance between all the different values in each group and then averages them
+bc_clust <- hclust(bc_dist, method = "average")
+
+
+#------------Plotting-------------#
+
+# plotting the Bray-Curtis dissimilarity, I made it as a dendrogram to flatten out the bottom
+den_temp_clust = as.dendrogram(bc_clust)
+plot(den_temp_clust)
+
+#Colouring (from https://rstudio-pubs-static.s3.amazonaws.com/68544_06343669257d4f35aaca449f9ff1e6f7.html)
+#creating a colour palette with dif colours for DI and JS
+cbPalette <- c("tomato3", "steelblue")
+colorCode <- c(DI=cbPalette[1], JS = cbPalette[2])
+
+labels_colors(den_temp_clust) <- colorCode[clusdata_abund_DI$location][order.dendrogram(den_temp_clust)]
+par(cex = 0.7, mar=c(7,4,1,1))
+plot(den_temp_clust, ylab = "Bray-Curtis Dissimilarity")
+
+#creating a colour palette with dif colours for time intervals 1-3 (end of may, early to mid June, late june)
+cbPalette.int <- c("chartreuse3", "deepskyblue", "dodgerblue4", "gold2", "darkorange3", "brown1")
+colorCode.int <- c("2015_1"=cbPalette.int[1], "2015_2"=cbPalette.int[2], "2015_3"=cbPalette.int[3], "2016_1"=cbPalette.int[4], "2016_2"=cbPalette.int[5], "2016_3"=cbPalette.int[6])
+
+# assigning the colorcode to the spatial cluster data and ordering it so that the x-axis labels are coloured according to region, requires package dendextend
+labels_colors(den_temp_clust) <- colorCode.int[clusdata_abund_DI$year_int][order.dendrogram(den_temp_clust)]
+par(cex = 0.7, mar=c(7,4,1,1))
+plot(den_temp_clust, ylab = "Bray-Curtis Dissimilarity")
+
+```
+
+```{r Cluster: Simprof, results = 'hide'}
+##--------SIMPROF TEST-----------##
+##
+library(clustsig)
+
+#Calculates number of significant clusters using average linkage method
+simprof_test <- simprof(bc_abund_DI, num.expected=200, num.simulated=100,
+                        method.cluster="average", method.distance="czekanowski", 
+                        method.transform="identity", alpha=0.01, sample.orientation = "row", 
+                        const =1 ,silent=FALSE, increment=10, undef.zero=T, 
+                        warn.braycurtis = F)
+simprof.plot(simprof_test)
+
+```
+
+```{r Cluster: ANOSIM/SIMPER}
+##
+##------ANOSIM/SIMPER-------##
+##
+
+#create the BC dissimilarity matrix
+bc_dist <- vegdist(bc_abund_DI, method = "bray")
+
+attach(metadata_DI)
+
+#anosim using our dissimilarity matrix and our grouping variable: location
+temp.ano <- anosim(bc_dist, location)
+summary(temp.ano)
+plot(temp.ano)
+
+#anosim using our dissimilarity matrix and our grouping variable: year
+temp.ano <- anosim(bc_dist, year)
+summary(temp.ano)
+plot(temp.ano)
+
+#anosim using our dissimilarity matrix and our grouping variable: month
+temp.ano <- anosim(bc_dist, month)
+summary(temp.ano)
+plot(temp.ano)
+
+#anosim using our dissimilarity matrix and our grouping variable: sample.int (interval from 1-3, with 1 being end of May, 2 = early June, 3 = late June)
+temp.ano <- anosim(bc_dist, sample.int)
+summary(temp.ano)
+plot(temp.ano)
+
+#simper analysis using the BC dissimilarity matrix and grouping variable
+sim <- with(metadata_DI, simper(bc_abund_DI, location))
+summary(sim) #produces table with average contribution to dissimilary, avg abundances in groups a and b, and the cumulative sum of the contributions to dissimilarity
+sim #lists most influential species and their cumulative contributions
+
+
+#to get the overall dissimilarity between the clusters
+lapply(sim, FUN = function(x){x$overall})
+```
+
+### Cluster Analyses - Johnstone Strait
+
+Same code as above to run the Bray-Curtis Analysis, then test for significant clusters using SIMPROF, then look for significance between clusters using ANOSIM and see which species contribute to significant differences using SIMPER. Looking at DI data only.
+
+```{r Cluster: Bray-Curtis: JS}
+#----------Bray-Curtis----------#
+
+#vegdist uses the vegan package to calculate the distances between variables
+bc_dist <- vegdist(bc_abund_JS, method = "bray")
+
+#hclust creates the dendrogram by calculating the amount of dissimilarity between clusters,
+# average calculates the distance between all the different values in each group and then averages them
+bc_clust <- hclust(bc_dist, method = "average")
+
+
+#------------Plotting-------------#
+
+# plotting the Bray-Curtis dissimilarity, I made it as a dendrogram to flatten out the bottom
+den_temp_clust = as.dendrogram(bc_clust)
+plot(den_temp_clust)
+
+#Colouring (from https://rstudio-pubs-static.s3.amazonaws.com/68544_06343669257d4f35aaca449f9ff1e6f7.html)
+#creating a colour palette with dif colours for 2015 and 2016
+cbPalette <- c("tomato3", "steelblue")
+colorCode <- c("2015"=cbPalette[1], "2016" = cbPalette[2])
+
+labels_colors(den_temp_clust) <- colorCode[clusdata_abund_JS$year][order.dendrogram(den_temp_clust)]
+par(cex = 0.7, mar=c(7,4,1,1))
+plot(den_temp_clust, ylab = "Bray-Curtis Dissimilarity")
+
+#creating a colour palette with dif colours for time intervals 1-3 (end of may, early to mid June, late june)
+cbPalette.int <- c("chartreuse3", "deepskyblue", "dodgerblue4", "gold2", "darkorange3", "brown1")
+colorCode.int <- c("2015_1"=cbPalette.int[1], "2015_2"=cbPalette.int[2], "2015_3"=cbPalette.int[3], "2016_1"=cbPalette.int[4], "2016_2"=cbPalette.int[5], "2016_3"=cbPalette.int[6])
+
+# assigning the colorcode to the spatial cluster data and ordering it so that the x-axis labels are coloured according to region, requires package dendextend
+labels_colors(den_temp_clust) <- colorCode.int[clusdata_abund_JS$year_int][order.dendrogram(den_temp_clust)]
+par(cex = 0.7, mar=c(7,4,1,1))
+plot(den_temp_clust, ylab = "Bray-Curtis Dissimilarity")
+
+```
+
+```{r Cluster: Simprof, results = 'hide'}
+##--------SIMPROF TEST-----------##
+##
+library(clustsig)
+
+#Calculates number of significant clusters using average linkage method
+simprof_test <- simprof(bc_abund_DI, num.expected=200, num.simulated=100,
+                        method.cluster="average", method.distance="czekanowski", 
+                        method.transform="identity", alpha=0.01, sample.orientation = "row", 
+                        const =1 ,silent=FALSE, increment=10, undef.zero=T, 
+                        warn.braycurtis = F)
+simprof.plot(simprof_test)
+
+```
+
+```{r Cluster: ANOSIM/SIMPER}
+##
+##------ANOSIM/SIMPER-------##
+##
+
+#create the BC dissimilarity matrix
+bc_dist <- vegdist(bc_abund_DI, method = "bray")
+
+attach(metadata_DI)
+
+#anosim using our dissimilarity matrix and our grouping variable: location
+temp.ano <- anosim(bc_dist, location)
+summary(temp.ano)
+plot(temp.ano)
+
+#anosim using our dissimilarity matrix and our grouping variable: year
+temp.ano <- anosim(bc_dist, year)
+summary(temp.ano)
+plot(temp.ano)
+
+#anosim using our dissimilarity matrix and our grouping variable: month
+temp.ano <- anosim(bc_dist, month)
+summary(temp.ano)
+plot(temp.ano)
+
+#anosim using our dissimilarity matrix and our grouping variable: sample.int (interval from 1-3, with 1 being end of May, 2 = early June, 3 = late June)
+temp.ano <- anosim(bc_dist, sample.int)
+summary(temp.ano)
+plot(temp.ano)
+
+#simper analysis using the BC dissimilarity matrix and grouping variable
+sim <- with(metadata_DI, simper(bc_abund_DI, location))
+summary(sim) #produces table with average contribution to dissimilary, avg abundances in groups a and b, and the cumulative sum of the contributions to dissimilarity
+sim #lists most influential species and their cumulative contributions
+
+
+#to get the overall dissimilarity between the clusters
+lapply(sim, FUN = function(x){x$overall})
+```
+
+
+### Ordination
+
+Then conduct BIOENV model to find best correlated environmental vairables. Then run NMDS and ordinate with environmental parameters as vectors.
+
