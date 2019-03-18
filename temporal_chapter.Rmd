@@ -79,7 +79,7 @@ I first looked to see if data were normally distributed: they are positively ske
 
 The ANOVA results show that there was a significant difference in GFI between locations, and that for JS, GFI was significantly higher in 2016.
 
-```{r GFI, warning = FALSE}
+```{r GFI ANOVA, warning = FALSE}
 
 #ANOVA on GFI per location and year
 hist(GFI$gfi)
@@ -424,7 +424,7 @@ lapply(sim, FUN = function(x){x$overall})
 
 Same code as above to run the Bray-Curtis Analysis, then test for significant clusters using SIMPROF, then look for significance between clusters using ANOSIM and see which species contribute to significant differences using SIMPER. Looking at DI data only.
 
-```{r Cluster: Bray-Curtis: DI}
+```{r DI Cluster: Bray-Curtis}
 #----------Bray-Curtis----------#
 
 #vegdist uses the vegan package to calculate the distances between variables
@@ -461,7 +461,7 @@ plot(den_temp_clust, ylab = "Bray-Curtis Dissimilarity")
 
 ```
 
-```{r Cluster: Simprof, results = 'hide'}
+```{r DI Cluster: Simprof, results = 'hide'}
 ##--------SIMPROF TEST-----------##
 ##
 library(clustsig)
@@ -476,7 +476,7 @@ simprof.plot(simprof_test)
 
 ```
 
-```{r Cluster: ANOSIM/SIMPER}
+```{r DI Cluster: ANOSIM/SIMPER}
 ##
 ##------ANOSIM/SIMPER-------##
 ##
@@ -485,11 +485,6 @@ simprof.plot(simprof_test)
 bc_dist <- vegdist(bc_abund_DI, method = "bray")
 
 attach(metadata_DI)
-
-#anosim using our dissimilarity matrix and our grouping variable: location
-temp.ano <- anosim(bc_dist, location)
-summary(temp.ano)
-plot(temp.ano)
 
 #anosim using our dissimilarity matrix and our grouping variable: year
 temp.ano <- anosim(bc_dist, year)
@@ -507,7 +502,7 @@ summary(temp.ano)
 plot(temp.ano)
 
 #simper analysis using the BC dissimilarity matrix and grouping variable
-sim <- with(metadata_DI, simper(bc_abund_DI, location))
+sim <- with(metadata_DI, simper(bc_abund_DI, year))
 summary(sim) #produces table with average contribution to dissimilary, avg abundances in groups a and b, and the cumulative sum of the contributions to dissimilarity
 sim #lists most influential species and their cumulative contributions
 
@@ -520,7 +515,7 @@ lapply(sim, FUN = function(x){x$overall})
 
 Same code as above to run the Bray-Curtis Analysis, then test for significant clusters using SIMPROF, then look for significance between clusters using ANOSIM and see which species contribute to significant differences using SIMPER. Looking at DI data only.
 
-```{r Cluster: Bray-Curtis: JS}
+```{r JS Cluster: Bray-Curtis}
 #----------Bray-Curtis----------#
 
 #vegdist uses the vegan package to calculate the distances between variables
@@ -557,13 +552,13 @@ plot(den_temp_clust, ylab = "Bray-Curtis Dissimilarity")
 
 ```
 
-```{r Cluster: Simprof, results = 'hide'}
+```{r JS Cluster: Simprof, results = 'hide'}
 ##--------SIMPROF TEST-----------##
 ##
 library(clustsig)
 
 #Calculates number of significant clusters using average linkage method
-simprof_test <- simprof(bc_abund_DI, num.expected=200, num.simulated=100,
+simprof_test <- simprof(bc_abund_JS, num.expected=200, num.simulated=100,
                         method.cluster="average", method.distance="czekanowski", 
                         method.transform="identity", alpha=0.01, sample.orientation = "row", 
                         const =1 ,silent=FALSE, increment=10, undef.zero=T, 
@@ -572,20 +567,15 @@ simprof.plot(simprof_test)
 
 ```
 
-```{r Cluster: ANOSIM/SIMPER}
+```{r JS Cluster: ANOSIM/SIMPER}
 ##
 ##------ANOSIM/SIMPER-------##
 ##
 
 #create the BC dissimilarity matrix
-bc_dist <- vegdist(bc_abund_DI, method = "bray")
+bc_dist <- vegdist(bc_abund_JS, method = "bray")
 
-attach(metadata_DI)
-
-#anosim using our dissimilarity matrix and our grouping variable: location
-temp.ano <- anosim(bc_dist, location)
-summary(temp.ano)
-plot(temp.ano)
+attach(metadata_JS)
 
 #anosim using our dissimilarity matrix and our grouping variable: year
 temp.ano <- anosim(bc_dist, year)
@@ -603,7 +593,7 @@ summary(temp.ano)
 plot(temp.ano)
 
 #simper analysis using the BC dissimilarity matrix and grouping variable
-sim <- with(metadata_DI, simper(bc_abund_DI, location))
+sim <- with(metadata_JS, simper(bc_abund_JS, year))
 summary(sim) #produces table with average contribution to dissimilary, avg abundances in groups a and b, and the cumulative sum of the contributions to dissimilarity
 sim #lists most influential species and their cumulative contributions
 
