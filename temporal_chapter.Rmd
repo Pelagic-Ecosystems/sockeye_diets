@@ -607,3 +607,240 @@ lapply(sim, FUN = function(x){x$overall})
 
 Then conduct BIOENV model to find best correlated environmental vairables. Then run NMDS and ordinate with environmental parameters as vectors.
 
+
+******
+## 3) Does peak salmon outmigration overlap with peak zooplankton abundance?
+
+Below, I am trying to get a sense of the timing of peak zooplankton abundance. I am using the surface tows collected by the JSP, however there are also the surface and full water column tows from the oceanography program that could be considered. 
+
+Not only is the timing interesting, but also the changes of biomass in the different size classes.
+
+First I look at changes in zooplankton composition over time, then changes in abundance, then biomass.
+
+```{r Zooplankton Abundance}
+zoopcomp <- read_csv(here("raw", "zoopcomp.csv"))
+zoopww <- read_csv(here("raw", "zoopww.csv"))
+
+##
+##SPECIES COMP-----------------
+##
+
+#data wrangling zoop relative abundance data for species comp
+temp.abundz <- zoopcomp %>%
+  mutate(year = format(date, "%Y")) %>%
+  select(sampleID, date, year, location, site, plot.taxon.g, totcount, abundance) %>%
+  filter(site == "D07" | site =="J07", totcount != "NA") %>%
+  mutate(site = factor(site, levels = c("D07", "J07"))) %>%      
+  group_by(location,site, sampleID) %>%
+  mutate(relativeabundance = (totcount/sum(totcount))*100) %>%
+  filter(relativeabundance >= 5)
+
+#messing around with the date format to have it plot nicely on the x axis
+temp.abundz$year <- format(as.factor(temp.abundz$year))
+temp.abundz$date_m <- format(as.Date(temp.abundz$date), "%b-%d")
+temp.abundz$date_m1 <- as.Date(temp.abundz$date_m, format = "%b-%d")
+
+##plot relative abundance for each taxon for the taxa that contribute >5%, fill with taxon
+temp.zoop.relabund <- ggplot(data = temp.abundz, aes(x = date_m1, y = abundance)) + 
+  geom_col(aes(fill = plot.taxon.g), position = "fill", width = 3) +
+  theme_classic()+
+  facet_grid(vars(year), vars(location), scales = "free") +
+  scale_fill_manual(
+          values = c("darkorange1", "mediumseagreen", "mediumpurple3","goldenrod1", "royalblue3", "grey40"),
+          labels = c("Barnacle", "Calanoid Copepod", "Cladoceran", "Euphausiid", "Oikopleura", "Other")
+  ) +
+  theme(
+    axis.text.x = element_text(size = 12, angle = 90),
+    axis.text.y = element_text(size = 14),
+    axis.title.x = element_blank(),
+    axis.title.y = element_text(size = 14, margin = margin(r=10)),
+    panel.background = element_rect(fill = "white", colour = "grey50"),
+    strip.background = element_blank(),
+    strip.text = element_text(size = 16),
+    legend.title=element_blank(),
+    legend.text = element_text(size = 12)
+  ) +
+  labs(y = "Relative Abundance")
+
+temp.zoop.relabund +  scale_x_date(date_breaks ="1 week", date_labels = "%b-%d")
+
+
+#plotting zoop abundances as a bar graph
+temp.zoop.abund <- ggplot(data = temp.abundz, aes(x = date_m1, y = abundance)) + 
+  geom_bar(stat = "identity", width = 2) +
+  theme_classic() +
+  facet_grid(vars(year), vars(location), scales = "free_x") +
+  theme(
+    axis.text.x = element_text(size = 12, angle = 90),
+    axis.text.y = element_text(size = 14),
+    axis.title.x = element_blank(),
+    axis.title.y = element_text(size = 14, margin = margin(r = 10)),
+    panel.background = element_rect(fill = "white", colour = "grey50"),
+    strip.background = element_blank(),
+    strip.text = element_text(size = 16),
+    legend.title=element_blank(),
+    legend.text = element_text(size = 14)
+  ) +
+  labs(y = "Abundance (individ/m3)") +
+  scale_x_date(date_breaks ="1 week", date_labels = "%b-%d")
+
+temp.zoop.abund
+
+#For setting up the data for plotting abundance: summarizing abundance per sample
+zoop_abund_sum <- temp.abundz %>%
+        group_by(date, date_m1, year, location, sampleID) %>%
+        summarise(totabund = sum(abundance))
+
+#plotting as line graph
+zoop_abund_sum_p <- ggplot(data = zoop_abund_sum, aes(x = date_m1, y = totabund)) + 
+        geom_line() +
+        geom_point() +
+        annotate("rect", xmin = 0, xmax = 16, ymin = 0.5, ymax = 1.5, alpha = .2) +
+        theme_classic()+
+        facet_grid(vars(year), vars(location), scales = "free_x") +
+        theme(
+                axis.text.x = element_text(size = 12, angle = 90),
+                axis.text.y = element_text(size = 14),
+                axis.title.x = element_blank(),
+                axis.title.y = element_text(size = 14, margin = margin(r = 10)),
+                panel.background = element_rect(fill = "white", colour = "grey50"),
+                strip.background = element_blank(),
+                strip.text = element_text(size = 16),
+                legend.title=element_blank(),
+                legend.text = element_text(size = 14)
+        ) +
+        labs(y = "Abundance (individ/m3)") +
+        scale_x_date(date_breaks ="1 week", date_labels = "%b-%d")
+
+zoop_abund_sum_p
+```
+
+
+```{r Zoop Biomass}
+##--------BIOMASS-------------
+
+#data wrangling zoop relative abundance data for species comp
+zoopww$biomass <- as.numeric(as.character(zoopww$biomass))
+temp.zoop.biom <- zoopww %>%
+  mutate(year = format(date, "%Y")) %>%
+  select(sampleID, date, year, location, site, sieve, biomass) %>%
+  filter(site == "D07" | site == "J07", biomass != "NA") %>%
+  mutate(site = factor(site, levels = c("D07", "J07"))) 
+
+temp.zoop.biom$year <- format(as.factor(temp.zoop.biom$year))
+temp.zoop.biom$date_m <- format(as.Date(temp.zoop.biom$date), "%b-%d")
+temp.zoop.biom$date_m1 <- as.Date(temp.zoop.biom$date_m, format = "%b-%d")
+
+#plotting biomass as a bar graph
+temp.zoop.biomp <- ggplot(data = temp.zoop.biom, aes(x = date_m1, y = biomass)) + 
+  geom_bar(stat = "identity", width = 2) +
+  theme_classic()+
+  facet_grid(vars(year), vars(location)) +
+  theme(
+    axis.text.x = element_text(size = 12, angle = 90),
+    axis.text.y = element_text(size = 14),
+    axis.title.x = element_blank(),
+    axis.title.y = element_text(size = 14, margin = margin(r = 10)),
+    panel.background = element_rect(fill = "white", colour = "grey50"),
+    strip.background = element_blank(),
+    strip.text = element_text(size = 16),
+    legend.title=element_blank(),
+    legend.text = element_text(size = 14)
+  ) +
+  labs(y = "Biomass (mg/m3)") +
+  scale_x_date(date_breaks ="1 week", date_labels = "%b-%d")
+
+temp.zoop.biomp
+
+#For setting up the data for a line graph: summarizing biomass per sample rather than per size class
+zoop_biom_sum <- temp.zoop.biom %>%
+        group_by(date, date_m1, year, location, sampleID) %>%
+        mutate(totbiom = sum(biomass))
+
+#plotting as line graph
+zoop_biom_sum_p <- ggplot(data = zoop_biom_sum, aes(x = date_m1, y = totbiom)) + 
+        theme_classic()+
+        geom_line() +
+        geom_point() +
+        geom_rect(data = data.frame(xmin = decimal_date(as.Date(c("2015-05-20"))),
+                              xmax = decimal_date(as.Date(c("2015-06-01"))),
+                              ymin = -Inf,
+                              ymax = Inf),
+            aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax),
+            fill = "grey", alpha = 0.5) +
+        facet_grid(vars(year), vars(location), scales = "free_x") +
+        theme(
+                axis.text.x = element_text(size = 12, angle = 90),
+                axis.text.y = element_text(size = 14),
+                axis.title.x = element_blank(),
+                axis.title.y = element_text(size = 14, margin = margin(r = 10)),
+                panel.background = element_rect(fill = "white", colour = "grey50"),
+                strip.background = element_blank(),
+                strip.text = element_text(size = 16),
+                legend.title=element_blank(),
+                legend.text = element_text(size = 14)
+        ) +
+        labs(y = "Biomass (mg/m3)") +
+        scale_x_date(date_breaks ="1 week", date_labels = "%b-%d")
+
+zoop_biom_sum_p
+
+z.biom_size_DI <- zoop_biom_sum %>%
+        filter(location == "DI") %>%
+        group_by(sampleID, sieve) %>%
+        mutate(sieve_biom = sum(biomass))
+
+z.biom_size_JS <- zoop_biom_sum %>%
+        filter(location == "JS") %>%
+        group_by(sampleID, sieve) %>%
+        mutate(sieve_biom = sum(biomass))
+
+#plotting as line graph based on sieve for DI
+z.biom_size_DIp <- ggplot(data = z.biom_size_DI, aes(x = date_m1, y = biomass)) + 
+        geom_line() +
+        geom_point() +
+        theme_classic()+
+        facet_grid(vars(sieve), vars(year), scales = "free_x") +
+        theme(
+                axis.text.x = element_text(size = 12, angle = 90),
+                axis.text.y = element_text(size = 14),
+                axis.title.x = element_blank(),
+                axis.title.y = element_text(size = 14, margin = margin(r = 10)),
+                panel.background = element_rect(fill = "white", colour = "grey50"),
+                strip.background = element_blank(),
+                strip.text = element_text(size = 16),
+                legend.title=element_blank(),
+                legend.text = element_text(size = 14)
+        ) +
+        labs(y = "Biomass (mg/m3)") +
+        scale_x_date(date_breaks ="1 week", date_labels = "%b-%d")
+
+z.biom_size_DIp
+
+#plotting as line graph based on sieve for JS
+z.biom_size_JSp <- ggplot(data = z.biom_size_JS, aes(x = date_m1, y = sieve_biom)) + 
+        geom_line() +
+        geom_point() +
+        theme_classic()+
+        facet_grid(vars(sieve), vars(year), scales = "free_x") +
+        theme(
+                axis.text.x = element_text(size = 12, angle = 90),
+                axis.text.y = element_text(size = 14),
+                axis.title.x = element_blank(),
+                axis.title.y = element_text(size = 14, margin = margin(r = 10)),
+                panel.background = element_rect(fill = "white", colour = "grey50"),
+                strip.background = element_blank(),
+                strip.text = element_text(size = 16),
+                legend.title=element_blank(),
+                legend.text = element_text(size = 14)
+        ) +
+        labs(y = "Biomass (mg/m3)") +
+        scale_x_date(date_breaks ="1 week", date_labels = "%b-%d")
+
+z.biom_size_JSp
+```
+
+
+
+
+
