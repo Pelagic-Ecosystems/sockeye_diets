@@ -1,0 +1,162 @@
+---
+title: "Resample"
+author: "Brett"
+date: "31/07/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(here)
+library(lubridate)
+library(iNEXT)
+temporal <- read_csv(here::here("raw", "temp_diet_SO.csv"))
+
+hill_labels <- function(x) {
+  x + 
+    guides(fill = guide_legend(title = "Hill number"), shape = guide_legend(title = "Hill number"), colour = guide_legend(title = "Hill number")) +
+    scale_fill_discrete(name = "Hill Number",
+                          breaks = c(0,1,2),
+                          labels = c("Richness", "Shannon Diversity", 
+                                     "Simpson Diversity")) +
+    scale_colour_discrete(name = "Hill Number",
+                          breaks = c(0,1,2),
+                          labels = c("Richness", "Shannon Diversity", 
+                                     "Simpson Diversity")) +
+    scale_shape_discrete(name = "Hill Number",
+                          breaks = c(0,1,2),
+                          labels = c("Richness", "Shannon Diversity", 
+                                     "Simpson Diversity"))+
+    ggsidekick::theme_sleek(base_size = 14)
+  }
+```
+
+# D07 and J07 annual
+
+```{r}
+  
+d07 <- temporal %>% 
+        select(ufn, date, site, plot.taxon.d) %>% 
+        filter(site == 'D07') %>% 
+        mutate(week = week(date)) %>% 
+        group_by(plot.taxon.d, week) %>% 
+        summarize(n = n()) %>% 
+        spread(key = week, value = n) %>%
+        as.data.frame() %>% 
+        drop_na(plot.taxon.d)
+
+rownames(d07) <- d07[,1]
+d07[,1] <- NULL
+
+d07 <- d07 %>% 
+                replace_na(list("20" = 0, "21" = 0, "23" = 0, "24" = 0))
+
+d07_output <- iNEXT(d07, q = c(0, 1, 2), datatype = "abundance") 
+
+# d07_output[["DataInfo"]][["site"]] <- fct_relevel(di_output[["DataInfo"]][["site"]],
+#                                                  "DI_W", "DI_C", "DI_E")
+
+d07 <- ggiNEXT(d07_output, type=2, facet.var = "site") +
+  ggtitle("Sockeye Genetic Diversity Measures") +
+  labs(caption = "") 
+
+hill_labels(d07)
+```
+
+# EDA
+
+```{r}
+library(vegan)
+library(tidyverse)
+library(here)
+
+temp <- read_csv(here("raw", "temp_diet_SO.csv"))
+
+#gather dabundance data at site level
+temp_abund <- temp %>%
+        select(ufn, date, site, order, count) %>%
+        unite(ID, c(date, site), remove = FALSE) %>%
+        filter(count != "Na", order !='NA', site == "D07") %>% 
+        group_by(ufn, ID, order) %>% 
+        summarise(total = sum(count))
+        
+
+#rearranging rows of taxonomic data into columns by plot taxon, making all NA's = 0, selecting only taxonomic columns
+temp_clusdata_abund<- spread(temp_abund, key = order, value = total) 
+temp_clusdata_abund[is.na(temp_clusdata_abund)] <- 0
+
+par(mfrow=c(2,5))
+seine_1 <- temp_clusdata_abund %>% 
+  filter(ID == "2015-05-16_D07") %>% 
+  ungroup() %>% 
+  select(3:18) %>% 
+  specaccum() %>% 
+  plot(., ci.type="poly", col="blue", lwd=2, ci.lty=0, ci.col="lightblue", xlab = "Fish", ylab = "Taxa")
+
+seine_2 <- temp_clusdata_abund %>% 
+  filter(ID == "2015-06-09_D07") %>% 
+  ungroup() %>% 
+  select(3:18) %>% 
+  specaccum(.) %>% 
+  plot(., ci.type="poly", col="blue", lwd=2, ci.lty=0, ci.col="lightblue", xlab = "Fish", ylab = "Taxa")
+
+seine_3 <- temp_clusdata_abund %>% 
+  filter(ID == "2016-06-16_D07") %>% 
+  ungroup() %>% 
+  select(3:18) %>% 
+  specaccum(.) %>% 
+  plot(., ci.type="poly", col="blue", lwd=2, ci.lty=0, ci.col="lightblue", xlab = "Fish", ylab = "Taxa")
+
+seine_4 <- temp_clusdata_abund %>% 
+  filter(ID == "2016-06-09_D07") %>% 
+  ungroup() %>% 
+  select(3:18) %>% 
+  specaccum(.) %>% 
+  plot(., ci.type="poly", col="blue", lwd=2, ci.lty=0, ci.col="lightblue", xlab = "Fish", ylab = "Taxa")
+
+seine_5 <- temp_clusdata_abund %>% 
+  filter(ID == "2016-06-03_D07") %>% 
+  ungroup() %>% 
+  select(3:18) %>% 
+  specaccum(.) %>% 
+  plot(., ci.type="poly", col="blue", lwd=2, ci.lty=0, ci.col="lightblue", xlab = "Fish", ylab = "Taxa")
+
+seine_6 <- temp_clusdata_abund %>% 
+  filter(ID == "2016-05-26_D07") %>% 
+  ungroup() %>% 
+  select(3:18) %>% 
+  specaccum(.) %>% 
+  plot(., ci.type="poly", col="blue", lwd=2, ci.lty=0, ci.col="lightblue", xlab = "Fish", ylab = "Taxa") 
+
+seine_7 <- temp_clusdata_abund %>% 
+  filter(ID == "2016-05-14_D07") %>% 
+  ungroup() %>% 
+  select(3:18) %>% 
+  specaccum(.) %>% 
+  plot(., ci.type="poly", col="blue", lwd=2, ci.lty=0, ci.col="lightblue", xlab = "Fish", ylab = "Taxa") 
+
+seine_8 <- temp_clusdata_abund %>% 
+  filter(ID == "2015-06-05_D07") %>% 
+  ungroup() %>% 
+  select(3:18) %>% 
+  specaccum(.) %>% 
+  plot(., ci.type="poly", col="blue", lwd=2, ci.lty=0, ci.col="lightblue", xlab = "Fish", ylab = "Taxa") 
+
+seine_9 <- temp_clusdata_abund %>% 
+  filter(ID == "2015-05-16_D07") %>% 
+  ungroup() %>% 
+  select(3:18) %>% 
+  specaccum(.) %>% 
+  plot(., ci.type="poly", col="blue", lwd=2, ci.lty=0, ci.col="lightblue", xlab = "Fish", ylab = "Taxa")    
+
+seine_10 <- temp_clusdata_abund %>% 
+  filter(ID == "2015-06-13_D07") %>% 
+  ungroup() %>% 
+  select(3:18) %>% 
+  specaccum(.) %>% 
+  plot(., ci.type="poly", col="blue", lwd=2, ci.lty=0, ci.col="lightblue", xlab = "Fish", ylab = "Taxa")  
+
+
+```
+
