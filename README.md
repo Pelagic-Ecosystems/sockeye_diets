@@ -1,4 +1,6 @@
 # sockeye_diets
-Analysis of juvenile sockeye data in the DI and JS for 2015 and 2016 for the completion of my masters thesis
+Analysis of juvenile sockeye data in the DI and JS for 2015 and 2016 for the completion of my masters research.
 
 The coast of British Columbia is a dynamic web of islands, channels, and inlets. Oceanographic conditions range from well-mixed to highly stratified, from cool to warm, from high to low productivity, with varying water densities, all fluctuating on relatively small scales. Juvenile salmon migrate these waters in their early marine phase as they start their first year at sea, heading north to the Gulf of Alaska where they spend their adult life. How do these small scale changes in the environments they encounter along their migration affect their foraging success? The Discovery Islands/Johnstone Strait region lies between the mainland of British Columbia and Vancouver Island and has been hypothesized to be an area of low productivity, which may cause an energy defecit for outmigrating salmon. We have selected this region to take a closesr look at juvenile salmon diets to determine how they vary across fine spatial scales and how this might affect foraging success and overall survival. 
+
+Fish collection and dissection were performed by the Hakai Institute Juvenile Salmon Program. Stomach dissections and taxonomic analyses were conducted by myself. 
