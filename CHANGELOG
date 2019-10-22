@@ -9,3 +9,7 @@
         1. Spatial: samples were processed and diet information filled in between 2017-06 and 2018-04
         2. Temporal: samples were processed and diet information filled between 2018-04 and 2018-11
         
+## [0.0.2] - 2019-10-22
+### Updated
+- Updated raw files to the latest versions
+- Changed some of the definitions in the data dictionary
