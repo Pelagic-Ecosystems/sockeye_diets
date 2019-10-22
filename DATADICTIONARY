@@ -52,15 +52,16 @@ phylum, class, order, infraorder, family, genus, species:
 * ID to species: some copepods
 * Note: there were two stomachs with parasitic worms (Anisakis spp.) inside the stomachs. These were ID'd, but not inlcuded in diet analyses
 
-plot.taxon: 
-* initial ID categories after lab ID - 16 categories with latin names
-
 plot.taxon.g:
-* final 'grouped' taxonomic categories (9) used for plotting
+* basic 'grouped' taxonomic categories (9) used for plotting
 
 plot.taxon.d:
-* detailed taxonomic categories (66) used for detailed diet analyses such as Bray-Curtis dissimilarity matrices, NMDS, ANOSIM, and for looking at small scale differences in diet composition plots between sites
-* Note, there is some redundancy in this category (e.g. Calanoid, digested calanoid, Aetideus divergens --> all fall into same broad category of 'calanoid' however are separated into 3 different taxanomic categories here)
+* detailed taxonomic categories (68) going to the lowest taxonomic resolution possible 
+
+plot.taxon: 
+* Final low resolution taxonomic groups used for detailed diet analyses such as Bray-Curtis dissimilarity matrices, NMDS, ANOSIM, and for looking at small scale differences in diet composition plots between sites
+* Slightly modified from plot.taxon.d based on a few taxonomic categories that showed up as outliers in preliminary analyses (e.g. Caprellidae in plot.taxon.d became Amphipod) and with other categories condensed (e.g. Digested Calanoid became Calanoid)
+
 
 labID: 
 * the initial ID give to the item during lab processing
@@ -82,12 +83,13 @@ size:
 
 length.min, length.max, and length.avg:
 * for each digestive index of each taxa, the collection of food items was visually assessed and a max and min length recorded for the smallest and largest individuals in the collection. The length.avg is just a calculated average between the max and min value
+* Note: for Larvaceans/Oikopleura, the length.min and length.max are for the head length. We used a conversion the following linear formula to calculate total lengths (x) from head lengths (y): y = 0.2073x + 0.1116
 
 group.weight:
 * this is the weight of each collection of items in each digestive state of each taxonomic category in each stomach. Each 'pile' of food items was blotted to remove excess moisture before being weighed to the nearest 0.0001mg
 
 corrected.weight:
-* group.weight multiplied by the ethanol conversion facto as mentioned above (x 1.56)
+* group.weight multiplied by the ethanol conversion factor as mentioned above (x 1.54)
 
 comments:
 * comments mostly made by Hakai lab staff during fish dissections, some comments from me during diet analysis
@@ -144,6 +146,7 @@ volume:
 
 vol.cor:
 * corrected volume measurements after Brett Johnson's QA/QC of the data
+* this value was used for abundance calculations
 
 sieve:
 * samples were size fractioned in the lab using a 3 size sieve stack: 250um, 1000um, and 2000um
@@ -164,15 +167,15 @@ phylum, class, order, infraorder, family, genus, species:
 * ID to genus: some jellies (e.g. Clytia, sarsia), cladocerans, most copepods, most amphipods (e.g. themisto), some harpacticoids (e.g. Microsetella), oikopleura, some siphonophores (e.g. Nanomia)
 * ID to species: mostly copepods, some jellies (e.g. Aequorea victoria, Annatiara affinis, Amphinema platyhedos)
 
-plot.taxon: 
-* initial ID categories after lab ID - 16 categories with latin names
-
 plot.taxon.g:
-* final 'grouped' taxonomic categories (9) used for plotting
+* basic 'grouped' taxonomic categories (9) used for plotting
 
 plot.taxon.d:
-* detailed taxonomic categories (66) used for detailed diet analyses such as Bray-Curtis dissimilarity matrices, NMDS, ANOSIM, and for looking at small scale differences 
-* Note, there is some redundancy in this category (e.g. Calanoid, Aetideus divergens --> both fall into same broad category of 'calanoid' however are separated into 2 different taxanomic categories here)
+* detailed taxonomic categories (68) going to the lowest taxonomic resolution possible 
+
+plot.taxon: 
+* Final low resolution taxonomic groups used for detailed diet analyses such as Bray-Curtis dissimilarity matrices, NMDS, ANOSIM, and for looking at small scale differences in diet composition plots between sites
+* Slightly modified from plot.taxon.d based on a few taxonomic categories that showed up as outliers in preliminary analyses (e.g. Caprellidae in plot.taxon.d became Amphipod) and with other categories condensed (e.g. Digested Calanoid became Calanoid)
 
 labID: 
 * the initial ID give to the item during lab processing
