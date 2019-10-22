@@ -1,0 +1,16 @@
+Taxon,E,rank
+Oikopleura,0.9,1
+Calanoida,-0.3,2
+Euphausiacea,0.8,3
+Chaetognatha,1.0,4
+Amphipoda,1.0,5
+Barnacle,-0.9,6
+Decapoda,0.7,7
+Poecilostomatoida,-0.8,8
+Cladocera,-1.0,9
+Other,-1.0,10
+Insecta,0.0,11
+Nauplius,0.0,12
+Polychaeta,-1.0,13
+Cnidaria,-1.0,14
+Cyclopoida,-1.0,15

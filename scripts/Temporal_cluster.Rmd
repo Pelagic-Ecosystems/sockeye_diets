@@ -1,0 +1,160 @@
+---
+title: "Temporal_Cluster"
+author: "Sam James"
+date: "March 17, 2019"
+output: pdf_document
+---
+
+```{r setup, include=FALSE, message=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Temporal Cluster Analysis of Juvenile Sockeye Diets
+
+The following is a collection of the scripts run to generate and analyse the data for temporal cluster analyses of the juvenile sockeye diet data collected in 2015 and 2016.
+
+## Abundance Data
+###Preparing the Data
+
+```{r Cluster: data wrangling, warning = FALSE}
+library(tidyverse)
+library(vegan)
+library(lubridate)
+library(dendextend)
+library(here)
+
+
+#Import files
+temp <- read_csv(here("raw", "Temporal.csv"))
+meta <- read_csv(here("processed", "temp_meta.csv"))
+
+
+#Data wrangling:-------#
+
+#using detailed level of taxonomy (plot.taxon.d), for coarser resolution use plot.taxon
+#setting up the data and apply an sqrt arcsine tranformation to rel abund data
+#Calculating abundance data at the individual sample level
+temp_abund1 <- temp %>%
+        select(semsp_id = semsp.no, ufn, date, sample.int, location, site, fullness.est, plot.taxon.d, count) %>%
+        separate(date, c("year", "month", "day"), sep = "-") %>%
+        unite(year_int, c(year, sample.int), remove = FALSE) %>%
+        filter(count != "Na", !plot.taxon.d %in% c('NA', 'Digested', 'Anisakis'), fullness.est >5) %>% 
+        group_by(semsp_id, ID, year, month, sample.int, site, location, plot.taxon.d) %>%
+        summarise(total = sum(count)) %>%
+        mutate(relabund = (total/sum(total))) %>%
+        mutate(arcsin = ((2/pi)*asin(sqrt(relabund)))) %>%
+        select(semsp_id, ID, year, month, sample.int, site, location, plot.taxon.d, arcsin)
+
+#save
+write.csv(temp_abund1, "./processed/temp_relabund_transformed.csv")
+
+#rearranging rows of taxonomic data into columns by plot taxon, making all NA's = 0, selecting only taxonomic columns
+temp_clusdata_abund<- spread(temp_abund1, key = plot.taxon.d, value = arcsin) 
+temp_clusdata_abund[is.na(temp_clusdata_abund)] <- 0
+
+#converting it to a dataframe and setting rownames as the first column and then only selecting the taxonomic data columns
+# as part of the data prep for Bray-Curtis
+temp_clusdata_abund <- data.frame(temp_clusdata_abund)
+rownames(temp_clusdata_abund)=temp_clusdata_abund[,1]    
+temp_bc_abund <- temp_clusdata_abund[8:77]
+
+#edit metadata to only contain same ID's as in the temporal fish data
+metadata1 <- semi_join(meta, temp_clusdata_abund, by = "semsp_id")
+metadata <- merge(metadata1, temp_clusdata_abund[,c("semsp_id", "ID", "sample.int")], by = "semsp_id") %>%
+        select(1, 4, 2:3, 20:21, 5:19)
+
+```
+
+### Cluster Analyses
+
+Code to run the Bray-Curtis Analysis, then test for significant clusters using SIMPROF, then look for significance between clusters using ANOSIM and see which species contribute to significant differences using SIMPER. 
+
+```{r Cluster: Bray-Curtis}
+#----------Bray-Curtis----------#
+
+#vegdist uses the vegan package to calculate the distances between variables
+temp_bc_dist <- vegdist(temp_bc_abund, method = "bray")
+
+#hclust creates the dendrogram by calculating the amount of dissimilarity between clusters,
+# average calculates the distance between all the different values in each group and then averages them
+temp_bc_clust <- hclust(temp_bc_dist, method = "average")
+
+
+#------------Plotting-------------#
+
+# plotting the Bray-Curtis dissimilarity, I made it as a dendrogram to flatten out the bottom
+den_temp_clust = as.dendrogram(temp_bc_clust)
+plot(den_temp_clust)
+
+#Colouring (from https://rstudio-pubs-static.s3.amazonaws.com/68544_06343669257d4f35aaca449f9ff1e6f7.html)
+#creating a colour palette with dif colours for DI and JS
+cbPalette <- c("tomato3", "steelblue")
+colorCode <- c(DI=cbPalette[1], JS = cbPalette[2])
+
+labels_colors(den_temp_clust) <- colorCode[temp_clusdata_abund$location][order.dendrogram(den_temp_clust)]
+par(cex = 0.7, mar=c(7,4,1,1))
+plot(den_temp_clust, ylab = "Bray-Curtis Dissimilarity")
+
+```
+
+```{r Cluster: Simprof, results = 'hide'}
+##--------SIMPROF TEST-----------##
+##
+library(clustsig)
+
+#Calculates number of significant clusters using average linkage method
+simprof_test <- simprof(temp_bc_abund, num.expected=200, num.simulated=100,
+                        method.cluster="average", method.distance="czekanowski", 
+                        method.transform="identity", alpha=0.01, sample.orientation = "row", 
+                        const =1 ,silent=FALSE, increment=10, undef.zero=T, 
+                        warn.braycurtis = F)
+simprof.plot(simprof_test)
+
+```
+
+```{r Cluster: ANOSIM/SIMPER}
+##
+##------ANOSIM/SIMPER-------##
+##
+
+#create the BC dissimilarity matrix
+temp_bc_dist <- vegdist(temp_bc_abund, method = "bray")
+
+attach(metadata)
+
+#anosim using our dissimilarity matrix and our grouping variable: location
+temp.ano <- anosim(temp_bc_dist, location)
+summary(temp.ano)
+plot(temp.ano)
+
+#anosim using our dissimilarity matrix and our grouping variable: year
+temp.ano <- anosim(temp_bc_dist, year)
+summary(temp.ano)
+plot(temp.ano)
+
+#anosim using our dissimilarity matrix and our grouping variable: month
+temp.ano <- anosim(temp_bc_dist, month)
+summary(temp.ano)
+plot(temp.ano)
+
+#anosim using our dissimilarity matrix and our grouping variable: sample.int (interval from 1-3, with 1 being end of May, 2 = early June, 3 = late June)
+temp.ano <- anosim(temp_bc_dist, sample.int)
+summary(temp.ano)
+plot(temp.ano)
+
+#simper analysis using the BC dissimilarity matrix and grouping variable
+sim <- with(metadata, simper(temp_bc_abund, location))
+summary(sim) #produces table with average contribution to dissimilary, avg abundances in groups a and b, and the cumulative sum of the contributions to dissimilarity
+sim #lists most influential species and their cumulative contributions
+
+
+#to get the overall dissimilarity between the clusters
+lapply(sim, FUN = function(x){x$overall})
+```
+
+
+
+### Ordination
+
+Then conduct BIOENV model to find best correlated environmental vairables. Then run NMDS and ordinate with environmental parameters as vectors.
+

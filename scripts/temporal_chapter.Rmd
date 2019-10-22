@@ -26,6 +26,16 @@ Sub-questions:
 
 ###Preparing the Data
 
+```{r Packages and Data Import, warning = FALSE}
+library(tidyverse)
+library(lubridate)
+library(here)
+library(visreg)
+
+temporal <- read_csv(here("raw", "Temporal.csv"))
+```
+
+
 ```{r GFI, warning = FALSE}
 library(tidyverse)
 library(lubridate)
@@ -428,6 +438,7 @@ Same code as above to run the Bray-Curtis Analysis, then test for significant cl
 #----------Bray-Curtis----------#
 
 #vegdist uses the vegan package to calculate the distances between variables
+# switch between bc_abund_DI and bc_biom_DI to get abundance and biomass respectively
 bc_dist <- vegdist(bc_abund_DI, method = "bray")
 
 #hclust creates the dendrogram by calculating the amount of dissimilarity between clusters,
@@ -444,20 +455,21 @@ plot(den_temp_clust)
 #Colouring (from https://rstudio-pubs-static.s3.amazonaws.com/68544_06343669257d4f35aaca449f9ff1e6f7.html)
 #creating a colour palette with dif colours for DI and JS
 cbPalette <- c("tomato3", "steelblue")
-colorCode <- c(DI=cbPalette[1], JS = cbPalette[2])
+colorCode <- c("2015"=cbPalette[1], "2016" = cbPalette[2])
 
-labels_colors(den_temp_clust) <- colorCode[clusdata_abund_DI$location][order.dendrogram(den_temp_clust)]
+labels_colors(den_temp_clust) <- colorCode[clusdata_abund_DI$year][order.dendrogram(den_temp_clust)]
 par(cex = 0.7, mar=c(7,4,1,1))
 plot(den_temp_clust, ylab = "Bray-Curtis Dissimilarity")
 
 #creating a colour palette with dif colours for time intervals 1-3 (end of may, early to mid June, late june)
-cbPalette.int <- c("chartreuse3", "deepskyblue", "dodgerblue4", "gold2", "darkorange3", "brown1")
+cbPalette.int <- c("chartreuse3", "deepskyblue", "dodgerblue4", "darkorange", "brown2", "darkred")
 colorCode.int <- c("2015_1"=cbPalette.int[1], "2015_2"=cbPalette.int[2], "2015_3"=cbPalette.int[3], "2016_1"=cbPalette.int[4], "2016_2"=cbPalette.int[5], "2016_3"=cbPalette.int[6])
 
 # assigning the colorcode to the spatial cluster data and ordering it so that the x-axis labels are coloured according to region, requires package dendextend
 labels_colors(den_temp_clust) <- colorCode.int[clusdata_abund_DI$year_int][order.dendrogram(den_temp_clust)]
 par(cex = 0.7, mar=c(7,4,1,1))
 plot(den_temp_clust, ylab = "Bray-Curtis Dissimilarity")
+
 
 ```
 
@@ -481,7 +493,7 @@ simprof.plot(simprof_test)
 ##------ANOSIM/SIMPER-------##
 ##
 
-#create the BC dissimilarity matrix
+#create the BC dissimilarity matrix, switch between bc_abund_DI and bc_biom_DI to get abundance and biomass respectively
 bc_dist <- vegdist(bc_abund_DI, method = "bray")
 
 attach(metadata_DI)
@@ -542,7 +554,7 @@ par(cex = 0.7, mar=c(7,4,1,1))
 plot(den_temp_clust, ylab = "Bray-Curtis Dissimilarity")
 
 #creating a colour palette with dif colours for time intervals 1-3 (end of may, early to mid June, late june)
-cbPalette.int <- c("chartreuse3", "deepskyblue", "dodgerblue4", "gold2", "darkorange3", "brown1")
+cbPalette.int <- c("chartreuse3", "deepskyblue", "dodgerblue4", "darkorange", "brown2", "darkred")
 colorCode.int <- c("2015_1"=cbPalette.int[1], "2015_2"=cbPalette.int[2], "2015_3"=cbPalette.int[3], "2016_1"=cbPalette.int[4], "2016_2"=cbPalette.int[5], "2016_3"=cbPalette.int[6])
 
 # assigning the colorcode to the spatial cluster data and ordering it so that the x-axis labels are coloured according to region, requires package dendextend
