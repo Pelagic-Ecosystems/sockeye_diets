@@ -30,7 +30,9 @@ wet.content.w:
 * weight of stomach contents after removing from ethanol and soaking in water for 30 minutes and then blotting (samples reabsorb water)
 
 corrected.ww:
-* the wet.content.w * 1.56, which is a correction factor I developed in the lab to account for sample weight loss due to the preservation method. Storing in ethanol causes weight loss, rehydrating in water causes further weight loss, therefore samples are multiplied by ethanol correction factor to return them to 'fresh weight' equivalents so they can be used to compare to fish body weight
+* the wet.content.w * 1.56, which is a correction factor I developed in the lab to account for sample weight loss due to the preservation method.
+ Storing in ethanol causes weight loss, rehydrating in water causes further weight loss, therefore samples are multiplied by ethanol correction factor
+ to return them to 'fresh weight' equivalents so they can be used to compare to fish body weight
 
 fullness.cat:
 * this was a visual assessment of stomach fullness upon opening, categorized into one of five groups: 0, 1-25, 26-50, 51-75, 76-100
@@ -42,25 +44,30 @@ fullness.est:
 * my visual estimate of stomach fullness to a percentage
 
 phylum, class, order, infraorder, family, genus, species:
-* taxonomic information collected for each diet item. Items were identified to lowest taxonomic level possible, however this was easier done for some than others, and depending on digestive state.
+* taxonomic information collected for each diet item. Items were identified to lowest taxonomic level possible, however this was easier 
+ done for some than others, and depending on digestive state.
 * ID to phylum: Chaetognatha, Bryozoa
 * ID to class: ostracoda, barnacles, bivalvia, actinopterygii
 * ID to order: some calanoids, some decapods, some euphausiids, harpacticoids, insects (e.g. diptera), cumacea, some amphipods, siphonophorae
 * infraorder was used mostly to separate larval crabs when they cuoldn't be id'd to family
 * ID to family: most decapods were only to family, podonidae, some hyperiidae, gammaridae, spionidae, caprellidae, some euphausiids
-* ID to genus: most copepods, most euphausiids, all oikopleura, some cladocerans, some hyperiid amphipods (e.g. themisto, hyperoche), tomopteris (only polychaete to genus)
+* ID to genus: most copepods, most euphausiids, all oikopleura, some cladocerans, some hyperiid amphipods (e.g. themisto, hyperoche),
+ tomopteris (only polychaete to genus)
 * ID to species: some copepods
 * Note: there were two stomachs with parasitic worms (Anisakis spp.) inside the stomachs. These were ID'd, but not inlcuded in diet analyses
 
-plot.taxon: 
-* initial ID categories after lab ID - 16 categories with latin names
-
 plot.taxon.g:
-* final 'grouped' taxonomic categories (9) used for plotting
+* basic 'grouped' taxonomic categories (9) used for plotting
 
 plot.taxon.d:
-* detailed taxonomic categories (66) used for detailed diet analyses such as Bray-Curtis dissimilarity matrices, NMDS, ANOSIM, and for looking at small scale differences in diet composition plots between sites
-* Note, there is some redundancy in this category (e.g. Calanoid, digested calanoid, Aetideus divergens --> all fall into same broad category of 'calanoid' however are separated into 3 different taxanomic categories here)
+* detailed taxonomic categories (68) going to the lowest taxonomic resolution possible 
+
+plot.taxon: 
+* Final low resolution taxonomic groups used for detailed diet analyses such as Bray-Curtis dissimilarity matrices, NMDS, ANOSIM,
+ and for looking at small scale differences in diet composition plots between sites
+* Slightly modified from plot.taxon.d based on a few taxonomic categories that showed up as outliers in preliminary analyses 
+(e.g. Caprellidae in plot.taxon.d became Amphipod) and with other categories condensed (e.g. Digested Calanoid became Calanoid)
+
 
 labID: 
 * the initial ID give to the item during lab processing
@@ -75,35 +82,49 @@ sex:
 * this data was rarely recorded.. only recorded for species in which it was obvious (some copepods like Epilabidocera spp.)
 
 DI:
-* digestive index on a scale from 1 to 5, 1 being the most fresh, 4 being completely digested but still identifiable to some category, 5 being completely digested with no idea what it is
+* digestive index on a scale from 1 to 5, 1 being the most fresh, 4 being completely digested but still identifiable to some category,
+ 5 being completely digested with no idea what it is
 
 size:
 * all prey items were grouped into one of five size categories: <1, 1-2, 2-5, 5-10, >10
 
 length.min, length.max, and length.avg:
-* for each digestive index of each taxa, the collection of food items was visually assessed and a max and min length recorded for the smallest and largest individuals in the collection. The length.avg is just a calculated average between the max and min value
+* for each digestive index of each taxa, the collection of food items was visually assessed and a max and min length recorded for the 
+ smallest and largest individuals in the collection. The length.avg is just a calculated average between the max and min value
+* Note: for Larvaceans/Oikopleura, the length.min and length.max are for the head length. We used a conversion the following linear 
+formula to calculate total lengths (x) from head lengths (y): y = 0.2073x + 0.1116
+* Note: only length.min and length.max recorded for all taxa in temporal data. Averages were calculated for larvaceans due to conversion
+ to total length. Otherwise average calculated in R
 
 group.weight:
-* this is the weight of each collection of items in each digestive state of each taxonomic category in each stomach. Each 'pile' of food items was blotted to remove excess moisture before being weighed to the nearest 0.0001mg
+* this is the weight of each collection of items in each digestive state of each taxonomic category in each stomach. Each 'pile' of food
+ items was blotted to remove excess moisture before being weighed to the nearest 0.0001mg
 
 corrected.weight:
-* group.weight multiplied by the ethanol conversion facto as mentioned above (x 1.56)
+* group.weight multiplied by the ethanol conversion factor as mentioned above (x 1.54)
 
 comments:
 * comments mostly made by Hakai lab staff during fish dissections, some comments from me during diet analysis
 
 dylan.proc:
 * filled in as Y (yes) or N (no)
-* some of the stomachs had some analyses conducted on them prior to mine (conducted by Dylan Smith for Sean Godwin). For this, they were removed from ethanol, stomach fullness was visually assessed, stomach contents were removed and left to dry (ethanol allowed to evaporate) prior to being weighed and returned to vials of ethanol. I made note of this because I found in general that the food items from these stomachs were in worse condition than those that hadn't previously been touched. The extra processing/having the contents preserved directly in ethanol may have degraded the samples somewhat.
+* some of the stomachs had some analyses conducted on them prior to mine (conducted by Dylan Smith for Sean Godwin). For this, they were
+ removed from ethanol, stomach fullness was visually assessed, stomach contents were removed and left to dry (ethanol allowed to evaporate)
+ prior to being weighed and returned to vials of ethanol. I made note of this because I found in general that the food items from these 
+ stomachs were in worse condition than those that hadn't previously been touched. The extra processing/having the contents preserved 
+ directly in ethanol may have degraded the samples somewhat.
 
 overnight:
 * filled in as Y (yes) or N (no)
-* sometimes, for very full stomachs, I had to leave them in my sample tray with a bit of water, covered in parafilm overnight. I made note of this because leaving them overnight may affect the DNA (if the samples were to be used for future DNA analyses)
+* sometimes, for very full stomachs, I had to leave them in my sample tray with a bit of water, covered in parafilm overnight. I made 
+ note of this because leaving them overnight may affect the DNA (if the samples were to be used for future DNA analyses)
+
 
 
 ## Zooplankton Taxonomic Data (zoopcomp)
 
-Note the samples were collected from Hakai and the tow data was obtained from Mat Foster prior to data being available on the data portal. Taxonomic data was entered by lab technicians at UBC (myself(Sam James), Andrea Lee, and Jihyun Kim)
+Note the samples were collected from Hakai and the tow data was obtained from Mat Foster prior to data being available on the data portal. 
+ Taxonomic data was entered by lab technicians at UBC (myself(Sam James), Andrea Lee, and Jihyun Kim)
 
 sampleID:
 * the unique QPK or JSPK number assigned to each sample in the field
@@ -136,7 +157,8 @@ distance:
 * ((flowout - flowin) * 26873) / 999999
 
 duration:
-* duration of zooplankton tow. only sometimes recorded. Protocol was to tow the net for roughly three minutes or until there was colouration in the net
+* duration of zooplankton tow. only sometimes recorded. Protocol was to tow the net for roughly three minutes or until there was 
+colouration in the net
 
 volume:
 * calculated volume of water sampled by the zooplankton net using the equation provided by General OCeanics:
@@ -144,12 +166,14 @@ volume:
 
 vol.cor:
 * corrected volume measurements after Brett Johnson's QA/QC of the data
+* this value was used for abundance calculations
 
 sieve:
 * samples were size fractioned in the lab using a 3 size sieve stack: 250um, 1000um, and 2000um
 
 fraction.proc:
-* fraction of total sample processed. Sometimes there was too much material in each sieve to process and then the sample would be split using either a folsom splitter or a stempel
+* fraction of total sample processed. Sometimes there was too much material in each sieve to process and then the sample would be split
+ using either a folsom splitter or a stempel
 * the target was to count at least ~300 specimens in a subsample but not to split to below 1% of the total sample
 * therefore, values range from 0.01 - 1
 
@@ -157,22 +181,29 @@ sizeclass:
 * specimens were grouped into the same size classes as the salmon diet items for comparison: <1, 1-2, 2-5, 5-10, >10
 
 phylum, class, order, infraorder, family, genus, species:
-* taxonomic information collected for each diet item. Items were identified to lowest taxonomic level possible, however this was easier done for some than others (may have also varied depending on abilities of the lab technician)
+* taxonomic information collected for each diet item. Items were identified to lowest taxonomic level possible, however this was 
+ easier done for some than others (may have also varied depending on abilities of the lab technician)
 * ID to phylum: Chaetognatha, bryozoa, phoronida, echinodermata, some ctenophora
 * ID to class: barnacles (as Maxillopoda), bivalvia, gastropoda, most polychaetes
-* ID to order: some calanoids, some amphipods, some harpacticoids, some euphausiids, most jellies (e.g. siphonophorae, anthomedusae, letpomedusae), insects (e.g. Diptera), isopods, some decapods, * ID to family: some euphausiids, most decapods (e.g. Hippolytidae, Cancridae, CAllianassidae), pleurobrachiidae, some polychaetes (e.g. spionidae, flabelligeridae, tomopteridae), some amphipods (e.g. just to hyperiidae or gammaridae), fish larvae
-* ID to genus: some jellies (e.g. Clytia, sarsia), cladocerans, most copepods, most amphipods (e.g. themisto), some harpacticoids (e.g. Microsetella), oikopleura, some siphonophores (e.g. Nanomia)
+* ID to order: some calanoids, some amphipods, some harpacticoids, some euphausiids, most jellies (e.g. siphonophorae, anthomedusae,
+  letpomedusae), insects (e.g. Diptera), isopods, some decapods, * ID to family: some euphausiids, most decapods (e.g. Hippolytidae,
+  Cancridae, CAllianassidae), pleurobrachiidae, some polychaetes (e.g. spionidae, flabelligeridae, tomopteridae), some amphipods 
+ (e.g. just to hyperiidae or gammaridae), fish larvae
+* ID to genus: some jellies (e.g. Clytia, sarsia), cladocerans, most copepods, most amphipods (e.g. themisto), some harpacticoids 
+ (e.g. Microsetella), oikopleura, some siphonophores (e.g. Nanomia)
 * ID to species: mostly copepods, some jellies (e.g. Aequorea victoria, Annatiara affinis, Amphinema platyhedos)
 
-plot.taxon: 
-* initial ID categories after lab ID - 16 categories with latin names
-
 plot.taxon.g:
-* final 'grouped' taxonomic categories (9) used for plotting
+* basic 'grouped' taxonomic categories (9) used for plotting
 
 plot.taxon.d:
-* detailed taxonomic categories (66) used for detailed diet analyses such as Bray-Curtis dissimilarity matrices, NMDS, ANOSIM, and for looking at small scale differences 
-* Note, there is some redundancy in this category (e.g. Calanoid, Aetideus divergens --> both fall into same broad category of 'calanoid' however are separated into 2 different taxanomic categories here)
+* detailed taxonomic categories (68) going to the lowest taxonomic resolution possible 
+
+plot.taxon: 
+* Final low resolution taxonomic groups used for detailed diet analyses such as Bray-Curtis dissimilarity matrices, NMDS, ANOSIM, 
+ and for looking at small scale differences in diet composition plots between sites
+* Slightly modified from plot.taxon.d based on a few taxonomic categories that showed up as outliers in preliminary analyses 
+ (e.g. Caprellidae in plot.taxon.d became Amphipod) and with other categories condensed (e.g. Digested Calanoid became Calanoid)
 
 labID: 
 * the initial ID give to the item during lab processing
@@ -211,13 +242,15 @@ Note: most columns are the same as in the zoopcomp file and aren't listed here
 
 ww: 
 * wet weight of the sample in each sieve in mg
-* after sample was split, the sieve was blotted using kimtech wipes from the back to remove excess moisture before the sample was removed from the sieve and weighed
+* after sample was split, the sieve was blotted using kimtech wipes from the back to remove excess moisture before the sample was 
+ removed from the sieve and weighed
 
 biomass:
 * 'ww' divided by 'vol.cor' to get mg/m3
 
 processor.notes:
-* mostly used to indicate whether the weight was for gelatinous or non-gelatinous items. If there were gelatinous items in the sieve, they were removed and weighed separately
+* mostly used to indicate whether the weight was for gelatinous or non-gelatinous items. If there were gelatinous items in the sieve,
+ they were removed and weighed separately
 
 
 
